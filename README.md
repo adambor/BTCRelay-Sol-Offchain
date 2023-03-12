@@ -1,6 +1,6 @@
 # Bitcoin relay off-chain app
 
-A nodejs app, utilizing bitcoin full node and synchronizing all blockheaders to [program on Solana](https://github.com/adambor/BTCRelay-Sol)
+A nodejs app, utilizing bitcoin full node and synchronizing all blockheaders to [program on Solana](https://github.com/adambor/BTCRelay-Sol). This app is also handling possible forks and chain splits and always tries to submit the chain with highest work.
 
 ## Requirements
 * bitcoind node (Download latest from [here](https://bitcoincore.org/en/download/) or [build from source](https://baloian.medium.com/how-to-setup-and-run-a-bitcoin-full-node-on-ubuntu-a106fb86dbb3))
