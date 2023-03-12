@@ -1,0 +1,18 @@
+{
+  "name": "btcrelay-sol",
+  "version": "1.0.0",
+  "description": "Bitcoin relay off-chain synchronizer app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "adambor",
+  "license": "ISC",
+  "dependencies": {
+    "@project-serum/anchor": "^0.26.0",
+    "@solana/web3.js": "^1.73.3",
+    "bitcoind-rpc": "^0.9.1",
+    "dotenv": "^16.0.3"
+  }
+}
