@@ -92,7 +92,7 @@ function serializeBlockHeader(e) {
 async function saveMainHeaders(mainHeaders, storedHeader) {
     const blockHeaderObj = mainHeaders.map(serializeBlockHeader);
 
-    console.log("[BTCRelay: EVM.submitMainChainHeaders] Submitting headers: ", blockHeaderObj);
+    console.log("[BTCRelay: Solana.submitMainChainHeaders] Submitting headers: ", blockHeaderObj);
 
     const tx = await program.methods
         .submitBlockHeaders(
@@ -116,7 +116,7 @@ async function saveMainHeaders(mainHeaders, storedHeader) {
 
     const signature = await _client.sendAndConfirm(tx, [_signer]);
 
-    console.log("[BTCRelay: EVM.submitMainChainHeaders] Transaction sent: ", signature);
+    console.log("[BTCRelay: Solana.submitMainChainHeaders] Transaction sent: ", signature);
 
     let fetchedTx = null;
     while(fetchedTx==null) {
@@ -125,7 +125,7 @@ async function saveMainHeaders(mainHeaders, storedHeader) {
         });
     }
 
-    console.log("[BTCRelay: EVM.submitMainChainHeaders] Transaction confirmed! Receipt: ", fetchedTx);
+    console.log("[BTCRelay: Solana.submitMainChainHeaders] Transaction confirmed! Receipt: ", fetchedTx);
 
     if(fetchedTx.meta.err) {
         throw new Error("Transaction execution failed: "+fetchedTx.meta.err);
@@ -159,7 +159,7 @@ async function saveNewForkHeaders(forkHeaders, storedHeader) {
 
     const forkId = mainState.forkCounter;
 
-    console.log("[BTCRelay: EVM.submitNewForkChainHeaders] Submitting headers: ", blockHeaderObj);
+    console.log("[BTCRelay: Solana.submitNewForkChainHeaders] Submitting headers: ", blockHeaderObj);
 
     const tx = await program.methods
         .submitForkHeaders(
@@ -188,7 +188,7 @@ async function saveNewForkHeaders(forkHeaders, storedHeader) {
         skipPreflight: true
     });
 
-    console.log("[BTCRelay: EVM.submitNewForkChainHeaders] Transaction sent: ", signature);
+    console.log("[BTCRelay: Solana.submitNewForkChainHeaders] Transaction sent: ", signature);
 
     let fetchedTx = null;
     while(fetchedTx==null) {
@@ -197,7 +197,7 @@ async function saveNewForkHeaders(forkHeaders, storedHeader) {
         });
     }
 
-    console.log("[BTCRelay: EVM.submitNewForkChainHeaders] Transaction confirmed! Receipt: ", fetchedTx);
+    console.log("[BTCRelay: Solana.submitNewForkChainHeaders] Transaction confirmed! Receipt: ", fetchedTx);
 
     if(fetchedTx.meta.err) {
         throw new Error("Transaction execution failed: "+fetchedTx.meta.err);
@@ -225,7 +225,7 @@ async function saveNewForkHeaders(forkHeaders, storedHeader) {
 async function saveForkHeaders(forkHeaders, storedHeader, forkId) {
     const blockHeaderObj = forkHeaders.map(serializeBlockHeader);
 
-    console.log("[BTCRelay: EVM.submitForkChainHeaders] Submitting headers: ", blockHeaderObj);
+    console.log("[BTCRelay: Solana.submitForkChainHeaders] Submitting headers: ", blockHeaderObj);
 
     const tx = await program.methods
         .submitForkHeaders(
@@ -252,7 +252,7 @@ async function saveForkHeaders(forkHeaders, storedHeader, forkId) {
 
     const signature = await _client.sendAndConfirm(tx, [_signer]);
 
-    console.log("[BTCRelay: EVM.submitForkChainHeaders] Transaction sent: ", signature);
+    console.log("[BTCRelay: Solana.submitForkChainHeaders] Transaction sent: ", signature);
 
     let fetchedTx = null;
     while(fetchedTx==null) {
@@ -261,7 +261,7 @@ async function saveForkHeaders(forkHeaders, storedHeader, forkId) {
         });
     }
 
-    console.log("[BTCRelay: EVM.submitForkChainHeaders] Transaction confirmed! Receipt: ", fetchedTx);
+    console.log("[BTCRelay: Solana.submitForkChainHeaders] Transaction confirmed! Receipt: ", fetchedTx);
 
     if(fetchedTx.meta.err) {
         throw new Error("Transaction execution failed: "+fetchedTx.meta.err);
