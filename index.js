@@ -5,6 +5,8 @@ const web3 = require("@solana/web3.js");
 const programIdl = require("./programIdl");
 const crypto = require("crypto");
 
+const blockUtils = require("./blockUtils");
+
 const forkedBlocks = require("./forkedBlocks");
 
 const STATE_SEED = "state";
@@ -89,6 +91,7 @@ function serializeBlockHeader(e) {
     };
 }
 
+
 async function saveMainHeaders(mainHeaders, storedHeader) {
     const blockHeaderObj = mainHeaders.map(serializeBlockHeader);
 
@@ -116,7 +119,7 @@ async function saveMainHeaders(mainHeaders, storedHeader) {
 
     const signature = await _client.sendAndConfirm(tx, [_signer]);
 
-    console.log("[BTCRelay: Solana.submitMainChainHeaders] Transaction sent: ", signature);
+    console.log("[BTCRelay: Solana.submitMainChainHeaders] Transactions sent: ", signature);
 
     let fetchedTx = null;
     while(fetchedTx==null) {
@@ -141,12 +144,124 @@ async function saveMainHeaders(mainHeaders, storedHeader) {
         if(log.name==="StoreHeader") {
             lastStoredHeader = log.data.header;
         }
-        console.log(JSON.stringify(log.data.header, null, 4));
+        //console.log(JSON.stringify(log.data.header, null, 4));
     }
 
     return {
         forkId: 0,
-        lastStoredHeader
+        lastStoredHeader,
+        numHeaders: mainHeaders.length
+    }
+}
+
+async function saveMainHeadersFastSync(mainHeaders, storedHeader) {
+    const blockHeaderObj = mainHeaders.map(serializeBlockHeader);
+
+    //console.log("[BTCRelay: Solana.submitMainChainHeaders] Submitting headers: ", blockHeaderObj);
+
+    const height = await _client.connection.getSlot("confirmed");
+
+    const numTxns = Math.floor(blockHeaderObj.length / 7)+1;
+
+    console.log("Confirmed height: ", height);
+
+    let storedHeaderBuffer = [];
+    let i = 0;
+
+    let computedStoredHeader = storedHeader;
+
+    const signatures = [];
+
+    const sendTx = async () => {
+
+        const ix = await program.methods
+            .submitBlockHeaders(
+                storedHeaderBuffer,
+                computedStoredHeader
+            )
+            .accounts({
+                signer: _signer.publicKey,
+                mainState: mainStateKey,
+                //systemProgram: web3.SystemProgram.programId,
+            })
+            .remainingAccounts(storedHeaderBuffer.map(e => {
+                return {
+                    pubkey: getHeaderTopic(e),
+                    isSigner: false,
+                    isWritable: false
+                }
+            }))
+            .signers([_signer])
+            .instruction();
+
+        const tx = new web3.Transaction()
+            .add(web3.ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: (numTxns-i)*50
+            }))
+            .add(ix);
+        const {blockhash} = await _client.connection.getBlock(height-(i), {
+            commitment: "confirmed"
+        });
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = _signer.publicKey;
+        const signedTx = await new anchor.Wallet(_signer).signTransaction(tx);
+        const signature = await _client.connection.sendRawTransaction(signedTx.serialize(), {
+            skipPreflight: true
+        });
+        //await new Promise((resolve) => setTimeout(resolve, 100));
+        i++;
+        computedStoredHeader = blockUtils.computeCommitedHeader(computedStoredHeader, storedHeaderBuffer);
+        storedHeaderBuffer = [];
+        signatures.push(signature);
+        console.log("Signature "+i+": ", signature);
+    };
+
+    for(let blockHeader of blockHeaderObj) {
+        storedHeaderBuffer.push(blockHeader);
+        if(storedHeaderBuffer.length>=7) {
+            await sendTx();
+        }
+    }
+
+    if(storedHeaderBuffer.length>0) {
+        await sendTx();
+    }
+
+    console.log("[BTCRelay: Solana.submitMainChainHeaders] Transactions sent: ", signatures);
+
+    let fetchedTx = null;
+    while(fetchedTx==null) {
+        fetchedTx = await _client.connection.getTransaction(signatures[signatures.length-1], {
+            commitment: "confirmed"
+        });
+        if(fetchedTx!=null && signatures.length>1 && fetchedTx.meta.err) {
+            signatures.pop();
+            fetchedTx = null;
+        }
+    }
+
+    console.log("Successful transactions: ", signatures.length);
+
+    if(fetchedTx.meta.err) {
+        throw new Error("Transaction execution failed: "+fetchedTx.meta.err);
+    }
+
+    const events = eventParser.parseLogs(fetchedTx.meta.logMessages);
+
+    let lastStoredHeader;
+    for(let log of events) {
+        if(log.name==="StoreFork") {
+            lastStoredHeader = log.data.header;
+        }
+        if(log.name==="StoreHeader") {
+            lastStoredHeader = log.data.header;
+        }
+    }
+
+    return {
+        forkId: 0,
+        lastStoredHeader,
+        numHeaders: lastStoredHeader.blockheight-storedHeader.blockheight
     }
 }
 
@@ -613,7 +728,7 @@ async function main(submitFakeHeaders) {
             } else {
                 cacheData = await saveForkHeaders(headerCache, cacheData.lastStoredHeader, cacheData.forkId)
             }
-            headerCache = [];
+            headerCache.splice(0, cacheData.numHeaders);
         }
         console.log("Blockheight: ", spvTipBlockHeader.height);
     }
@@ -633,10 +748,6 @@ async function main(submitFakeHeaders) {
 }
 
 async function start() {
-    // await main(true);
-    // console.log("Fake fork headers submitted");
-    // await new Promise(resolve => setTimeout(resolve, 2000));
-    // console.log("Submitting real headers");
     let run;
     run = async () => {
         await main().catch(e => console.error(e));
@@ -644,6 +755,39 @@ async function start() {
         setTimeout(run, 60*1000);
     };
     run();
+
+    // const txs = [];
+    //
+    // const height = await _client.connection.getSlot("confirmed");
+    //
+    // console.log("Confirmed height: ", height);
+    //
+    // for(let i=0;i<5;i++) {
+    //     const tx = new web3.Transaction()
+    //         .add(web3.ComputeBudgetProgram.setComputeUnitPrice({
+    //             microLamports: (6-i)*100
+    //         }))
+    //         .add(web3.SystemProgram.transfer({
+    //             fromPubkey: _signer.publicKey,
+    //             toPubkey: new web3.PublicKey("EeioDNWuuCfv8r4ppeHxrnugyoq2VB7xrNY92B8GgZ2d"),
+    //             lamports: 100000
+    //         }));
+    //     const {blockhash} = await _client.connection.getBlock(height-i, {
+    //         commitment: "confirmed"
+    //     });
+    //
+    //     console.log("Blockhash: ", blockhash);
+    //
+    //     tx.recentBlockhash = blockhash;
+    //     tx.feePayer = _signer.publicKey;
+    //
+    //     const signedTx = await new anchor.Wallet(_signer).signTransaction(tx);
+    //
+    //     const txResult = await _client.connection.sendRawTransaction(signedTx.serialize());
+    //
+    //     console.log("Signature "+i+": ", txResult);
+    // }
+
 }
 
 start().catch(e => {

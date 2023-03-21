@@ -656,6 +656,6 @@ module.exports = {
         }
     ],
     "metadata": {
-        "address": "8DMFpUfCk8KPkNLtE25XHuCSsT1GqYxuLdGzu59QK3Rt"
+        "address": "E4DkgFmsZ3pKoyg55s4wPwDZaWdt1DGohEJMsezFq4tT"
     }
 };
