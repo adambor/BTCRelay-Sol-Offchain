@@ -748,13 +748,13 @@ async function main(submitFakeHeaders) {
 }
 
 async function start() {
-    let run;
-    run = async () => {
-        await main().catch(e => console.error(e));
-        console.log("Re-running in 60 seconds");
-        setTimeout(run, 60*1000);
-    };
-    run();
+    // let run;
+    // run = async () => {
+    //     await main().catch(e => console.error(e));
+    //     console.log("Re-running in 60 seconds");
+    //     setTimeout(run, 60*1000);
+    // };
+    // run();
 
     // const txs = [];
     //
@@ -787,6 +787,55 @@ async function start() {
     //
     //     console.log("Signature "+i+": ", txResult);
     // }
+
+    const blocks = [];
+
+    let blockHash = "000000000000001a5927152995e6122b65a45571807c124d44be0674c9c24aeb"
+    for(let i=0;i<50;i++) {
+        const block = await new Promise((resolve, reject) => {
+            rpc.getBlock(blockHash, 2, (err, info) => {
+                if(err) {
+                    reject(err);
+                    return;
+                }
+                resolve(info.result);
+            });
+        });
+
+        blockHash = block.nextblockhash;
+
+        blocks.push(block);
+    }
+
+    const map = new Map();
+
+    const startTime = Date.now();
+
+    let totalTxs = 0;
+
+    const blockTxoHashes = [];
+    for(let block of blocks) {
+        totalTxs += block.tx.length;
+        for(let tx of block.tx) {
+            for(let vout of tx.vout) {
+                const voutHex = vout.scriptPubKey.hex;
+                const buff = Buffer.alloc((voutHex.length/2) + 8);
+                buff.writeBigUInt64LE(BigInt(Math.round(vout.value*100000000)));
+                buff.write(voutHex, "hex");
+                const txoHash = crypto.createHash("sha256").update(buff).digest();
+                blockTxoHashes.push(txoHash);
+                map.set(txoHash, {
+                    txId: tx.txid,
+                    vout: vout.n
+                })
+            }
+        }
+    }
+
+    const timeTaken = Date.now()-startTime;
+
+    console.log("Time taken: ", timeTaken);
+    console.log("Total txs: ", totalTxs);
 
 }
 
